@@ -1,4 +1,4 @@
-import { getBasic, setBasic } from "./auth.ts";
+import { getBasic, setBasic, JWT } from "./auth.ts";
 import { assertEquals } from "../testing/asserts.ts";
 
 Deno.test("Get basic authentication", () => {
@@ -14,10 +14,14 @@ Deno.test("Get basic authentication", () => {
 
 Deno.test("Set basic authentication", () => {
   const headers = new Headers();
-  setBasic(headers, "xiao_xigua", "123456789");
+  setBasic(headers, "Young", "123456789");
 
   assertEquals(
     headers.get("Authorization"),
-    "Basic eGlhb194aWd1YToxMjM0NTY3ODk=",
+    "Basic WW91bmc6MTIzNDU2Nzg5",
   );
 });
+
+Deno.test("create JWS Token", () => {
+  console.log(new JWT().createJWS());
+})
