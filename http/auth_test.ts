@@ -22,6 +22,6 @@ Deno.test("Set basic authentication", () => {
   );
 });
 
-Deno.test("create JWS Token", () => {
-  console.log(new JWT().createJWS());
+Deno.test("create JWS Token", async () => {
+  console.log(await new JWT().createJWS());
 })
