@@ -89,8 +89,8 @@ export function setBasic(
 }
 
 export class JWT {
-  private stringToArrayBytes(data: string): Uint32Array {
-    const bytes = new Uint32Array(data.length);
+  private stringToArrayBytes(data: string): Uint8Array {
+    const bytes = new Uint8Array(data.length);
     for (let index = 0; index < data.length; index++) {
       bytes[index] = data[index].charCodeAt(0);
     }
@@ -98,24 +98,24 @@ export class JWT {
     return bytes;
   }
 
-  private padFun(data: Uint32Array, size: number): Uint32Array {
-    const bytes = new Uint32Array(size);
+  private padFun(data: Uint8Array, size: number): Uint8Array {
+    const bytes = new Uint8Array(size);
 
     for (let i = 0; i < size; i++) {
       const byte = data[i];
 
-      if (byte === undefined) {
+      if (i === undefined) {
         bytes[i] = 0x00;
       } else {
         bytes[i] = byte;
       }
     }
-
+    console.log(bytes);
     return bytes;
   }
 
-  private xor(data: Uint32Array, value: number) {
-    const bytes = new Uint32Array(data.length);
+  private xor(data: Uint8Array, value: number) {
+    const bytes = new Uint8Array(data.length);
     for (let i = 0; i < data.byteLength; i++) {
       bytes[i] = data[i] ^ value;
     }
@@ -123,9 +123,9 @@ export class JWT {
     return bytes;
   }
 
-  private concatenation(data1: Uint32Array, data2: Uint32Array): Uint32Array {
+  private concatenation(data1: Uint8Array, data2: Uint8Array): Uint8Array {
     const dataLength = data1.byteLength + data2.byteLength;
-    const bytes = new Uint32Array(dataLength);
+    const bytes = new Uint8Array(dataLength);
     for (let i = 0; i < dataLength; i++) {
       if (i < data1.length) {
         bytes[i] = data1[i];
@@ -148,47 +148,42 @@ export class JWT {
     message: string,
   ): Promise<string> {
     const blockSize = 512;
-    const outputSize = 256;
-    const messageUint32 = this.stringToArrayBytes(message);
-    let key: Uint32Array;
+    const messageUint8 = this.stringToArrayBytes(message);
+    let key: Uint8Array;
 
     if (secret.length > blockSize) {
-      key = new Uint32Array(
+      key = new Uint8Array(
         await crypto.subtle.digest(alg, new TextEncoder().encode(secret)),
       );
     } else {
       key = this.padFun(this.stringToArrayBytes(secret), blockSize);
     }
 
-    const oKeyPad = this.xor(key, 0x5c);
-    const iKeyPad = this.xor(key, 0x36);
-    const hash1 = new Uint32Array(
+    const oKeyPad = this.xor(key, 0x5c5c5c5c);
+    const iKeyPad = this.xor(key, 0x36363636);
+
+    const hash1 = new Uint8Array(
       await crypto.subtle.digest(
         alg,
-        this.concatenation(iKeyPad, messageUint32),
+        this.concatenation(iKeyPad, messageUint8),
       ),
-    );
-    console.log(
-      new TextDecoder().decode(
-        await crypto.subtle.digest(
-          "SHA-384",
-          new TextEncoder().encode("hello world"),
-        ),
-      ),
-    );
-    console.log(
-      await crypto.subtle.digest(
-        alg,
-        this.concatenation(iKeyPad, messageUint32),
-      ),
-    );
-    const hash2 = await crypto.subtle.digest(
-      alg,
-      this.concatenation(oKeyPad, hash1),
     );
 
-    console.log(new TextDecoder().decode(hash2));
-    return hash2.toString();
+    const hash2 = new Uint8Array(
+      await crypto.subtle.digest(
+        alg,
+        this.concatenation(oKeyPad, hash1),
+      ),
+    );
+
+    return this.toHexString(hash2);
+  }
+
+  private toHexString(data: Uint8Array): string {
+    return data.reduce(
+      (str, byte) => str + byte.toString(16).padStart(2, "0"),
+      "",
+    );
   }
 
   async createJWS<T>(
@@ -201,7 +196,7 @@ export class JWT {
     return await this.HMAC(
       "SHA-256",
       config.secret,
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ",
+      "a",
     );
   }
 }
