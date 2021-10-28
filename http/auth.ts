@@ -1,11 +1,12 @@
 import { decode, encode } from "../encoding/base64.ts";
 import { crypto } from "../crypto/mod.ts";
+import { DigestAlgorithm } from "../_wasm_crypto/mod.ts";
 
 export interface Basic {
   username: string;
   password: string;
 }
-
+// JWT alg types
 type algType =
   | "HS256"
   | "HS384"
@@ -19,10 +20,6 @@ type algType =
   | "PS256"
   | "PS384"
   | "PS512";
-
-type SHA =
-  | "SHA-256"
-  | "SHA-512";
 
 export interface JOSEHeader {
   alg: algType;
@@ -93,15 +90,15 @@ export class JWT {
     return new TextEncoder().encode(str);
   }
 
-  private hmac(
+  private async hmac(
     data: Uint8Array,
     key: Uint8Array,
-    hash: (message: Uint8Array) => Uint8Array,
+    hash: (message: Uint8Array) => Promise<Uint8Array>,
     blockSize: number,
     outputSize: number,
-  ): Uint8Array {
+  ): Promise<Uint8Array> {
     if (key.length > blockSize) {
-      key = hash(key);
+      key = await hash(key);
     }
     const inner = new Uint8Array(blockSize + data.length).fill(
       0x36,
@@ -120,9 +117,9 @@ export class JWT {
       }
     });
     inner.set(data, blockSize);
-    const innerHash = hash(inner);
+    const innerHash = await hash(inner);
     outer.set(innerHash, blockSize);
-    return hash(outer);
+    return await hash(outer);
   }
 
   private toHexString(data: Uint8Array): string {
@@ -132,6 +129,15 @@ export class JWT {
     );
   }
 
+  private algorithm(algorithm: DigestAlgorithm) {
+    return async (data: Uint8Array): Promise<Uint8Array> => {
+      return new Uint8Array(await crypto.subtle.digest(
+        algorithm,
+        data,
+      ));
+    }
+  }
+
   async createJWS<T>(
     config: JWSConfig<T> = {
       header: { alg: "HS256", typ: "JWT" },
@@ -139,20 +145,6 @@ export class JWT {
       secret: "hi",
     },
   ): Promise<string> {
-    const a = (data: Uint8Array): Uint8Array => {
-      return new Uint8Array(crypto.subtle.digestSync(
-        "SHA-256",
-        data,
-      ));
-    };
-    return this.toHexString(
-      this.hmac(
-        this.stringToUint8Array("a"),
-        this.stringToUint8Array("hi"),
-        a,
-        64,
-        32,
-      ),
-    );
+
   }
 }
